@@ -48,8 +48,13 @@ class Route():
         # If the newRoute's cost is smaller, update the self's attributes 
         # to those of newRoute and return True.
         # Otherwise, return False
-        return False
-        
+        if newRoute.cost < self.cost:
+            self.nextHopIP = newRoute.nextHopIP
+            self.cost = newRoute.cost
+            return True
+        else:
+            return False
+                
 def dump_routing_table():
     for destIP, route in routing_table.items():
         print (f"Route to {destIP}: via {route.nextHopIP}, cost is {route.cost}")
@@ -375,7 +380,24 @@ def main(p4info_file_path, bmv2_file_path, routing_info, adj_info, part):
                     ### PART2_TODO: Add arp_table and dmac_forward table entries
                     ### using the above information from ARP reply
                     ### Use p4info_helper.buildTableEntry and s1.WriteTableEntry as in A2
+
+                    arp_table_entry = p4info_helper.buildTableEntry(
+                        table_name = "MyIngress.arp_table", 
+                        match_fields = {"meta.next_hop": next_hop_ip}, 
+                        action_name = "MyIngress.change_dst_mac", 
+                        action_params = {"dst_mac": next_hop_mac}
+                    )
                         
+                    s1.WriteTableEntry(arp_table_entry) 
+
+                    dmac_forward_entry = p4info_helper.buildTableEntry(
+                        table_name = "MyIngress.dmac_forward", 
+                        match_fields = {"hdr.ethernet.dstAddr": next_hop_mac}, 
+                        action_name = "MyIngress.forward_to_port", 
+                        action_params={"egress_port": egress_port, "egress_mac": egress_mac}
+                    )
+
+                    s1.WriteTableEntry(dmac_forward_entry)
                     # Dequeue packets waiting for the ARP reply
                     next_hop_int = int(ipaddress.ip_address(next_hop_ip))
                     print ("next hop ip in str ", str(ipaddress.ip_address(next_hop_ip)))
@@ -427,6 +449,15 @@ def main(p4info_file_path, bmv2_file_path, routing_info, adj_info, part):
                                 # between the sender and the router
                             )
                             if (entry.addr in routing_table):
+
+                                if routing_table[entry.addr].mergeRoute(newRoute):
+                                    table_entry = p4info_helper.buildTableEntry(
+                                    table_name="MyIngress.ipv4_route",
+                                    match_fields={"hdr.ipv4.dstAddr": (entry.addr, 32)},
+                                    action_name="MyIngress.forward_to_next_hop",
+                                    action_params={"next_hop": newRoute.nextHopIP}
+                                )
+                                s1.WriteTableEntry(table_entry, is_modify=True)
                                 # The address in the RIP response is in the routing table
                                 
                                 # PART3_TODO: Try to merge routes and update the routing table on success.
@@ -438,6 +469,14 @@ def main(p4info_file_path, bmv2_file_path, routing_info, adj_info, part):
                                 # 3. If the method returns False, do nothing since there's no update.
                                 pass
                             else:
+                                routing_table[entry.addr] = newRoute
+                                table_entry = p4info_helper.buildTableEntry(
+                                    table_name="MyIngress.ipv4_route",
+                                    match_fields={"hdr.ipv4.dstAddr": (entry.addr, 32)},
+                                    action_name="MyIngress.forward_to_next_hop",
+                                    action_params={"next_hop": newRoute.nextHopIP}
+                                )
+                                s1.WriteTableEntry(table_entry)
                                 # PART3_TODO: Route to a new address, add it.
                                 # 1. Add it to the routing_table dictionary using 
                                 # entry.addr as a key and new Route as a value.
