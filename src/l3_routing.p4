@@ -460,7 +460,7 @@ control MyIngress(inout headers hdr,
                   using table icmp_ingerss_port_ip */
 
             send_ICMP_error(ICMP_TYPE_TIME_EXCEEDED, 0);
-            icmp_ingerss_port_ip.apply();
+            icmp_ingress_port_ip.apply();
         }
         /* Check whether the packet's destination is router */
         else if (is_router_ip.apply().hit) {
