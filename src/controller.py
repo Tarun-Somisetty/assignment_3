@@ -456,8 +456,8 @@ def main(p4info_file_path, bmv2_file_path, routing_info, adj_info, part):
                                     match_fields={"hdr.ipv4.dstAddr": (entry.addr, 32)},
                                     action_name="MyIngress.forward_to_next_hop",
                                     action_params={"next_hop": newRoute.nextHopIP}
-                                )
-                                s1.WriteTableEntry(table_entry, is_modify=True)
+                                    )
+                                    s1.WriteTableEntry(table_entry, is_modify=True)
                                 # The address in the RIP response is in the routing table
                                 
                                 # PART3_TODO: Try to merge routes and update the routing table on success.
